@@ -12,6 +12,8 @@ from nmea_msgs.msg import Sentence
 from sensor_msgs.msg import NavSatFix
 from sensor_msgs.msg import NavSatStatus
 
+from rclpy.qos import QoSProfile, QoSHistoryPolicy, QoSReliabilityPolicy, QoSDurabilityPolicy, QoSLivelinessPolicy, Duration
+
 from ntrip_client.ntrip_base import NTRIPBase
 from ntrip_client.ntrip_client import NTRIPClient
 from ntrip_client.nmea_parser import NMEAParser, NMEA_DEFAULT_MAX_LENGTH, NMEA_DEFAULT_MIN_LENGTH
@@ -97,8 +99,14 @@ class NTRIPRosBase(Node):
       self.get_logger().error('Unable to connect')
       return False
     # Setup our subscribers
+    sensor_qos = QoSProfile(
+      history=QoSHistoryPolicy.KEEP_LAST,    # Keep last N messages
+      depth=5,                              # Store up to 5 messages
+      reliability=QoSReliabilityPolicy.BEST_EFFORT,  # No guaranteed delivery
+      durability=QoSDurabilityPolicy.VOLATILE,       # Don't persist messages
+    )
     self._nmea_sub = self.create_subscription(Sentence, 'nmea', self.subscribe_nmea, 10)
-    self._fix_sub = self.create_subscription(NavSatFix, 'fix', self.subscribe_fix, 10)
+    self._fix_sub = self.create_subscription(NavSatFix, 'fix', self.subscribe_fix, sensor_qos)
 
     # Start the timer that will check for RTCM data
     self._rtcm_timer = self.create_timer(0.1, self.publish_rtcm)
